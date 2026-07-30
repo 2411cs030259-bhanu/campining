@@ -26,7 +26,7 @@ class Config:
 
     # --- Flask / security ---
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-me")
-    ENV = os.getenv("FLASK_ENV", "development")
+    ENV = os.getenv("FLASK_ENV", "production")
     DEBUG = ENV == "development"
 
     # --- Session ---
