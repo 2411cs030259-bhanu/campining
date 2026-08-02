@@ -24,54 +24,39 @@ def _get_bool(name: str, default: bool = False) -> bool:
 class Config:
     """Base configuration shared by all environments."""
 
-    # ---------------- Flask ----------------
+    # --- Flask / security ---
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-me")
-    ENV = os.getenv("FLASK_ENV", "production")
-
-    # Enable debug only in development
+    ENV = os.getenv("FLASK_ENV", "development")
     DEBUG = ENV == "development"
 
-    # ---------------- Session ----------------
+    # --- Session ---
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
-    SESSION_COOKIE_SECURE = _get_bool(
-        "SESSION_COOKIE_SECURE",
-        default=(ENV == "production"),
-    )
-
+    SESSION_COOKIE_SECURE = _get_bool("SESSION_COOKIE_SECURE", default=(ENV == "production"))
     PERMANENT_SESSION_LIFETIME = timedelta(hours=8)
 
-    # ---------------- Database ----------------
+    # --- Database (MySQL) ---
     DB_HOST = os.getenv("DB_HOST", "localhost")
     DB_PORT = int(os.getenv("DB_PORT", "3306"))
     DB_NAME = os.getenv("DB_NAME", "marketing_analytics")
     DB_USER = os.getenv("DB_USER", "root")
     DB_PASSWORD = os.getenv("DB_PASSWORD", "")
 
-    # ---------------- CORS ----------------
+    # --- CORS ---
     ALLOWED_ORIGINS = [
         origin.strip()
-        for origin in os.getenv(
-            "ALLOWED_ORIGINS",
-            "http://localhost:3000"
-        ).split(",")
+        for origin in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
         if origin.strip()
     ]
 
-    # ---------------- Upload ----------------
+    # --- Uploads ---
     UPLOAD_FOLDER = os.getenv("UPLOAD_FOLDER", "uploads")
     REPORT_FOLDER = os.getenv("REPORT_FOLDER", "reports")
-
-    MAX_UPLOAD_SIZE_MB = int(
-        os.getenv("MAX_UPLOAD_SIZE_MB", "10")
-    )
-
-    MAX_CONTENT_LENGTH = (
-        MAX_UPLOAD_SIZE_MB * 1024 * 1024
-    )
-
+    MAX_UPLOAD_SIZE_MB = int(os.getenv("MAX_UPLOAD_SIZE_MB", "10"))
+    MAX_CONTENT_LENGTH = int(os.getenv("MAX_UPLOAD_SIZE_MB", "10")) * 1024 * 1024
     ALLOWED_UPLOAD_EXTENSIONS = {"csv"}
 
+    # Columns required in an uploaded campaign dataset
     REQUIRED_UPLOAD_COLUMNS = [
         "campaign",
         "platform",
@@ -93,10 +78,7 @@ class ProductionConfig(Config):
 
 class TestingConfig(Config):
     TESTING = True
-    DB_NAME = os.getenv(
-        "TEST_DB_NAME",
-        "marketing_analytics_test"
-    )
+    DB_NAME = os.getenv("TEST_DB_NAME", "marketing_analytics_test")
 
 
 CONFIG_MAP = {
@@ -107,9 +89,5 @@ CONFIG_MAP = {
 
 
 def get_config():
-    """
-    Return the appropriate configuration class based on FLASK_ENV.
-    Defaults to production when not specified.
-    """
-    env = os.getenv("FLASK_ENV", "production").lower()
-    return CONFIG_MAP.get(env, ProductionConfig)
+    env = os.getenv("FLASK_ENV", "development")
+    return CONFIG_MAP.get(env, DevelopmentConfig)
