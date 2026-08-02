@@ -1,11 +1,7 @@
 """
 database.py
 MySQL connection management using a connection pool.
-
-This module is the single place that knows how to talk to MySQL.
-Routes and services never import mysql.connector directly - they go
-through get_db_connection() / get_db_cursor() so the underlying driver
-or database engine can be swapped later without touching business logic.
+Optimized for cloud platforms like Render.
 """
 
 import logging
@@ -26,7 +22,7 @@ _pool = None
 def init_db_pool():
     """
     Initialize the MySQL connection pool.
-    Called once when the Flask application starts.
+    Called once when the application starts.
     """
     global _pool
 
@@ -36,21 +32,27 @@ def init_db_pool():
     try:
         _pool = pooling.MySQLConnectionPool(
             pool_name="marketing_analytics_pool",
-            pool_size=3,
+            pool_size=10,                    # Increased pool size
             pool_reset_session=True,
+
             host=config.DB_HOST,
             port=config.DB_PORT,
             database=config.DB_NAME,
             user=config.DB_USER,
             password=config.DB_PASSWORD,
+
             autocommit=False,
+
+            # Timeouts
             connection_timeout=10,
+            read_timeout=15,
+            write_timeout=15,
         )
 
-        logger.info("MySQL connection pool initialized.")
+        logger.info("MySQL connection pool initialized successfully.")
 
     except MySQLError as err:
-        logger.error("Failed to initialize MySQL connection pool: %s", err)
+        logger.exception("Unable to initialize MySQL connection pool.")
         raise
 
     return _pool
@@ -59,9 +61,10 @@ def init_db_pool():
 @contextmanager
 def get_db_connection():
     """
-    Get a MySQL connection from the pool.
+    Returns a valid MySQL connection.
 
-    Automatically reconnects if Render/MySQL closed an idle connection.
+    If Render or MySQL closed the connection,
+    automatically reconnect.
     """
 
     global _pool
@@ -74,33 +77,30 @@ def get_db_connection():
     try:
         conn = _pool.get_connection()
 
-        # Handle stale connections after Render sleep/wakeup
-        if not conn.is_connected():
+        logger.debug("Database connection acquired.")
+
+        try:
+            conn.ping(reconnect=True, attempts=3, delay=2)
+        except MySQLError:
+            logger.warning("Lost database connection. Reconnecting...")
             conn.reconnect(attempts=3, delay=2)
 
         yield conn
 
     except MySQLError as err:
-        logger.error("Database connection error: %s", err)
+        logger.exception("Database connection failed.")
         raise
 
     finally:
         if conn:
-            conn.close()  # returns connection back to pool
+            conn.close()
+            logger.debug("Database connection returned to pool.")
 
 
 @contextmanager
-def get_db_cursor(commit: bool = False, dictionary: bool = True):
+def get_db_cursor(commit=False, dictionary=True):
     """
-    Context manager that yields a cursor and handles commit/rollback.
-
-    Usage:
-
-        with get_db_cursor(commit=True) as cursor:
-            cursor.execute(
-                "INSERT INTO users (...) VALUES (...)",
-                values
-            )
+    Provides a cursor with automatic commit / rollback.
     """
 
     with get_db_connection() as conn:
@@ -115,9 +115,9 @@ def get_db_cursor(commit: bool = False, dictionary: bool = True):
             if commit:
                 conn.commit()
 
-        except MySQLError as err:
+        except MySQLError:
             conn.rollback()
-            logger.error("Database query failed: %s", err)
+            logger.exception("Database query failed.")
             raise
 
         finally:
@@ -125,9 +125,9 @@ def get_db_cursor(commit: bool = False, dictionary: bool = True):
                 cursor.close()
 
 
-def test_connection() -> bool:
+def test_connection():
     """
-    Simple database health check used by /api/v1/health.
+    Used by /health endpoint.
     """
 
     try:
@@ -137,6 +137,6 @@ def test_connection() -> bool:
 
         return True
 
-    except MySQLError as err:
-        logger.error("Database health check failed: %s", err)
+    except MySQLError:
+        logger.exception("Database health check failed.")
         return False
