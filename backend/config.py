@@ -33,12 +33,10 @@ class Config:
 
     # ---------------- Session ----------------
     SESSION_COOKIE_HTTPONLY = True
-    SESSION_COOKIE_SAMESITE = "Lax"
-    SESSION_COOKIE_SECURE = _get_bool(
-        "SESSION_COOKIE_SECURE",
-        default=(ENV == "production"),
-    )
-
+    SESSION_COOKIE_SAMESITE = "None"
+    #os.getenv("SESSION_COOKIE_SAMESITE", "None" if ENV == "production" else "Lax")
+    SESSION_COOKIE_SECURE = True
+    #_get_bool("SESSION_COOKIE_SECURE", default=(ENV == "production"))
     PERMANENT_SESSION_LIFETIME = timedelta(hours=8)
 
     # ---------------- Database ----------------
