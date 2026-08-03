@@ -29,12 +29,11 @@ def create_app():
     app = Flask(__name__)
     config = get_config()
     app.config.from_object(config)
-    print("=" * 60)
-    print("ENV:", app.config.get("ENV"))
-    print("SESSION_COOKIE_SAMESITE:", app.config.get("SESSION_COOKIE_SAMESITE"))
-    print("SESSION_COOKIE_SECURE:", app.config.get("SESSION_COOKIE_SECURE"))
-    print("SECRET_KEY exists:", bool(app.config.get("SECRET_KEY")))
-    print("=" * 60)
+    app.config.update(
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SECURE=True,
+        SESSION_COOKIE_SAMESITE="None",
+    )
     logging.basicConfig(
         level=logging.DEBUG if config.DEBUG else logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
